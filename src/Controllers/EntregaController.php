@@ -289,4 +289,39 @@ class EntregaController
             ], $ocorrencias),
         ];
     }
+
+    public static function naoConformidades(array $params)
+    {
+        $data = body();
+        $db = Database::connection();
+
+        foreach (['id_entrega', 'id_motivo'] as $campo) {
+            if (empty($data[$campo])) {
+                json(['erro' => "Campo obrigatório: {$campo}"], 422);
+            }
+        }
+
+        $stmt = $db->prepare('SELECT * FROM entregas WHERE id = ?');
+        $stmt->execute([$data['id_entrega']]);
+        $entrega = $stmt->fetch();
+
+        if (!$entrega) {
+            json(['erro' => "Entrega não encontrada."], 404);
+        }
+
+        $stmt = $db->prepare('SELECT * FROM motivos_nao_conformidade WHERE id = ?');
+        $stmt->execute([$data['id_motivo']]);
+        $motivo = $stmt->fetch();
+        if (!$motivo) {
+            json(['erro'  => 'Motivo não encontrado'], 404);
+        }
+
+        $stmt = $db->prepare('
+            INSERT INTO nao_conformidades(id_entrega, id_motivo, descricao) VALUES(?,?,?)
+        ');
+
+        $stmt->execute([$entrega['id'], $motivo['id'], $data['descricao']]);
+        $id = $db->lastInsertId();
+        json(['id' => $id, 'mensagem' => "Não conformidade criado com sucesso"]);
+    }
 }
