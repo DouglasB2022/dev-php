@@ -301,8 +301,11 @@ class EntregaController
             }
         }
 
+        $idEntrega = (int) $data['id_entrega'];
+        $idMotivo = (int) $data['id_motivo'];
+
         $stmt = $db->prepare('SELECT * FROM entregas WHERE id = ?');
-        $stmt->execute([$data['id_entrega']]);
+        $stmt->execute([$idEntrega]);
         $entrega = $stmt->fetch();
 
         if (!$entrega) {
@@ -310,7 +313,7 @@ class EntregaController
         }
 
         $stmt = $db->prepare('SELECT * FROM motivos_nao_conformidade WHERE id = ?');
-        $stmt->execute([$data['id_motivo']]);
+        $stmt->execute([$idMotivo]);
         $motivo = $stmt->fetch();
         if (!$motivo) {
             json(['erro'  => 'Motivo não encontrado'], 404);
@@ -320,7 +323,7 @@ class EntregaController
             INSERT INTO nao_conformidades(id_entrega, id_motivo, descricao) VALUES(?,?,?)
         ');
 
-        $stmt->execute([$entrega['id'], $motivo['id'], $data['descricao']]);
+        $stmt->execute([$idEntrega, $idMotivo, $data['descricao']]);
         $id = $db->lastInsertId();
         json(['id' => $id, 'mensagem' => "Não conformidade criado com sucesso"]);
     }
