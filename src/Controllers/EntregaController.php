@@ -295,24 +295,26 @@ class EntregaController
         $data = body();
         $db = Database::connection();
 
-        foreach (['id_entrega', 'id_motivo'] as $campo) {
+        foreach (['id_motivo'] as $campo) {
             if (empty($data[$campo])) {
                 json(['erro' => "Campo obrigatório: {$campo}"], 422);
             }
         }
 
-        $idEntrega = (int) $data['id_entrega'];
+        $idEntrega = (int) $params['id'];
+        
         $idMotivo = (int) $data['id_motivo'];
 
-        $stmt = $db->prepare('SELECT * FROM entregas WHERE id = ?');
+        $stmt = $db->prepare('SELECT id FROM entregas WHERE id = ?');
         $stmt->execute([$idEntrega]);
         $entrega = $stmt->fetch();
+        
 
         if (!$entrega) {
             json(['erro' => "Entrega não encontrada."], 404);
         }
 
-        $stmt = $db->prepare('SELECT * FROM motivos_nao_conformidade WHERE id = ?');
+        $stmt = $db->prepare('SELECT id FROM motivos_nao_conformidade WHERE id = ?');
         $stmt->execute([$idMotivo]);
         $motivo = $stmt->fetch();
         if (!$motivo) {
@@ -323,8 +325,8 @@ class EntregaController
             INSERT INTO nao_conformidades(id_entrega, id_motivo, descricao) VALUES(?,?,?)
         ');
 
-        $stmt->execute([$idEntrega, $idMotivo, $data['descricao']]);
+        $stmt->execute([$idEntrega, $idMotivo, $data['descricao'] ?? NULL]);
         $id = $db->lastInsertId();
-        json(['id' => $id, 'mensagem' => "Não conformidade criado com sucesso"]);
+        json(['id' => $id, 'mensagem' => "Não conformidade criada com sucesso"],201);
     }
 }
