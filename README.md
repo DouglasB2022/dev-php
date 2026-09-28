@@ -145,16 +145,38 @@ Resposta `201 Created`:
 }
 ```
 
-O campo `descricao` é opcional; `id_motivo` é obrigatório; `id_entrega` é obrigatório.
+O campo `descricao` é opcional; `id_motivo` é obrigatório; O `id_entrega` é informado pelo parâmetro {id} da URL
 
 ### Códigos de resposta do `POST /entregas/{id}/nao-conformidades`
 
-| Status | Situação |
-|--------|----------|
-| 201 | Não conformidade registrada |
-| 404 | Entrega não encontrada |
-| 404 | Motivo não encontrado |
-| 403 | Motivo inativo |
+| Status | Situação                         |
+| ------ | -------------------------------- |
+| 201    | Não conformidade registrada      |
+| 403    | Motivo inativo                   |
+| 404    | Entrega não encontrada           |
+| 404    | Motivo não encontrado            |
+| 422    | Status da entrega não permite NC |
+| 422    | Motivo incompatível com o status |
+| 422    | `id_motivo` obrigatório          |
+
+
+### Regras para criação de não conformidades
+
+A criação de uma não conformidade depende do status atual da entrega
+e do motivo selecionado.
+
+| Status da entrega | Motivos permitidos |
+|---|---|
+| SAIU_ENTREGA | AVARIA_PRODUTO, NAO_ENTREGUE, ENDERECO_INCORRETO, RECUSADO, EXTRAVIO, OUTROS |
+| ENTREGUE | AVARIA_PRODUTO, EXTRAVIO, OUTROS |
+| DEVOLVIDA | AVARIA_PRODUTO, ENDERECO_INCORRETO, RECUSADO, EXTRAVIO, OUTROS |
+| CRIADA | Nenhum |
+| COLETADA | Nenhum |
+| EM_TRANSITO | Nenhum |
+
+Além de verificar se o status permite a criação da não conformidade,
+a API valida se o motivo informado é compatível com o status atual
+da entrega.
 
 ## Banco de dados
 

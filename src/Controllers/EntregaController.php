@@ -16,6 +16,31 @@ class EntregaController
         'DEVOLVIDA'    => [],
     ];
 
+    private const MOTIVOS_NAO_CONFORMIDADE_POR_STATUS = [
+        'SAIU_ENTREGA' => [
+            'AVARIA_PRODUTO',
+            'NAO_ENTREGUE',
+            'ENDERECO_INCORRETO',
+            'RECUSADO',
+            'EXTRAVIO',
+            'OUTROS',
+        ],
+
+        'ENTREGUE' => [
+            'AVARIA_PRODUTO',
+            'EXTRAVIO',
+            'OUTROS',
+        ],
+
+        'DEVOLVIDA' => [
+            'AVARIA_PRODUTO',
+            'ENDERECO_INCORRETO',
+            'RECUSADO',
+            'EXTRAVIO',
+            'OUTROS',
+        ],
+    ];
+
     public static function index(array $params): void
     {
         $db    = Database::connection();
@@ -305,19 +330,30 @@ class EntregaController
 
         $idMotivo = (int) $data['id_motivo'];
 
-        $stmt = $db->prepare('SELECT id FROM entregas WHERE id = ?');
+        $stmt = $db->prepare('SELECT id, status, codigo FROM entregas WHERE id = ?');
         $stmt->execute([$idEntrega]);
         $entrega = $stmt->fetch();
-
 
         if (!$entrega) {
             json(['erro' => "Entrega não encontrada."], 404);
         }
 
-        $stmt = $db->prepare('SELECT id, ativo FROM motivos_nao_conformidade WHERE id = ?');
+        $statusAtual = $entrega['status'];
+
+        $motivosPermitidos = self::MOTIVOS_NAO_CONFORMIDADE_POR_STATUS[$statusAtual] ?? [];
+
+        if (empty($motivosPermitidos)) {
+            json([
+                'erro' => 'Não é possível criar uma não conformidade para esta entrega.',
+                'mensagem' => "O status atual '{$statusAtual}' não permite o registro de não conformidade."
+            ], 422);
+        }
+
+
+        $stmt = $db->prepare('SELECT id, codigo, descricao, ativo FROM motivos_nao_conformidade WHERE id = ?');
         $stmt->execute([$idMotivo]);
         $motivo = $stmt->fetch();
-        
+
         if (!$motivo) {
             json(['erro'  => 'Motivo não encontrado'], 404);
         }
@@ -326,12 +362,36 @@ class EntregaController
             json(['erro' => 'Motivo inativo'], 403);
         }
 
+
+        if (!in_array($motivo['codigo'], $motivosPermitidos, true)) {
+            json([
+                'erro' => 'Motivo de não conformidade não permitido.',
+                'mensagem' => sprintf(
+                    "O motivo '%s' não pode ser utilizado quando a entrega está com status '%s'.",
+                    $motivo['codigo'],
+                    $statusAtual
+                ),
+            ], 422);
+        }
+
         $stmt = $db->prepare('
             INSERT INTO nao_conformidades(id_entrega, id_motivo, descricao) VALUES(?,?,?)
         ');
 
         $stmt->execute([$idEntrega, $idMotivo, $data['descricao'] ?? NULL]);
         $id = $db->lastInsertId();
-        json(['id' => $id, 'mensagem' => "Não conformidade criada com sucesso"], 201);
+        json([
+            'id' => $id,
+            'id_entrega' => $idEntrega,
+            'codigo_entrega' => $entrega['codigo'],
+            'status_entrega' => $statusAtual,
+            'motivo' => [
+                'id' => (int) $motivo['id'],
+                'codigo' => $motivo['codigo'],
+                'descricao' => $motivo['descricao'],
+            ],
+            'descricao' => $data['descricao'] ?? null,
+            'mensagem' => 'Não conformidade criada com sucesso.',
+        ], 201);
     }
 }
