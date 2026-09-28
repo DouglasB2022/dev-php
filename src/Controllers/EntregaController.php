@@ -302,23 +302,28 @@ class EntregaController
         }
 
         $idEntrega = (int) $params['id'];
-        
+
         $idMotivo = (int) $data['id_motivo'];
 
         $stmt = $db->prepare('SELECT id FROM entregas WHERE id = ?');
         $stmt->execute([$idEntrega]);
         $entrega = $stmt->fetch();
-        
+
 
         if (!$entrega) {
             json(['erro' => "Entrega não encontrada."], 404);
         }
 
-        $stmt = $db->prepare('SELECT id FROM motivos_nao_conformidade WHERE id = ?');
+        $stmt = $db->prepare('SELECT id, ativo FROM motivos_nao_conformidade WHERE id = ?');
         $stmt->execute([$idMotivo]);
         $motivo = $stmt->fetch();
+        
         if (!$motivo) {
             json(['erro'  => 'Motivo não encontrado'], 404);
+        }
+
+        if (!$motivo['ativo']) {
+            json(['erro' => 'Motivo inativo'], 403);
         }
 
         $stmt = $db->prepare('
@@ -327,6 +332,6 @@ class EntregaController
 
         $stmt->execute([$idEntrega, $idMotivo, $data['descricao'] ?? NULL]);
         $id = $db->lastInsertId();
-        json(['id' => $id, 'mensagem' => "Não conformidade criada com sucesso"],201);
+        json(['id' => $id, 'mensagem' => "Não conformidade criada com sucesso"], 201);
     }
 }

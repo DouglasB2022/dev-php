@@ -1,184 +1,215 @@
-# Teste Técnico — Desenvolvedor PHP Júnior
+# TMS API — Teste Técnico PHP Júnior
 
-## Contexto
-
-Você acabou de entrar no time de desenvolvimento de um TMS (Transportation Management System). No seu primeiro dia, chegou um bug reportado pelo time de operações e uma nova funcionalidade para implementar.
-
-Seu trabalho: **corrigir o bug e entregar a feature**.
-
----
-
-## Prazo
-
-**5 dias corridos** a partir do recebimento deste desafio.
-
----
+API REST em **PHP puro** para um TMS (Transportation Management System), desenvolvida como solução de um teste técnico. Este projeto contém a correção de um bug reportado pelo time de operações e a nova funcionalidade de **não conformidades** em entregas.
 
 ## Stack
 
-PHP 8.1+ · PDO · MySQL 8+ · [Phinx](https://phinx.org) (migrations e seeds)
+- PHP 8.1+
+- PDO
+- MySQL 8.0 (via container Docker, imagem `mysql:8.0`)
+- [Phinx](https://phinx.org) para migrations e seeds
+- Composer
 
----
+## Pré-requisitos
+
+- PHP 8.1 ou superior (com a extensão `pdo_mysql`)
+- Composer
+- Docker
 
 ## Como rodar
 
+### 1. Clonar o repositório e instalar as dependências
+
 ```bash
-# 1. Configure o ambiente
-cp .env.example .env
-# edite .env com suas credenciais MySQL
-
-# 2. Instale as dependências
+git clone https://github.com/DouglasB2022/dev-php.git
+cd dev-php
 composer install
+```
 
-# 3. Crie as tabelas
+### 2. Subir o MySQL em um container
+
+O banco de dados roda em um container criado a partir da imagem oficial **`mysql:8.0`**:
+
+```bash
+docker run -d \
+  --name mysql-tms \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=tms_test \
+  -p 3306:3306 \
+  mysql:8.0
+```
+
+Para conferir se o container está de pé:
+
+```bash
+docker ps
+```
+
+Para acessar o MySQL dentro do container (útil para validar migrations e seeds):
+
+```bash
+docker exec -it mysql-tms mysql -uroot -proot
+```
+
+> Ajuste o nome do container, a senha e o nome do banco conforme sua preferência. Os valores precisam ser os mesmos configurados no `.env`.
+
+### 3. Configurar o ambiente
+
+```bash
+cp .env.example .env
+```
+
+Edite o `.env` com as credenciais do container MySQL (host, porta, banco, usuário e senha).
+
+### 4. Criar as tabelas
+
+```bash
 vendor/bin/phinx migrate
+```
 
-# 4. Popule os dados iniciais
+### 5. Popular os dados iniciais
+
+```bash
 vendor/bin/phinx seed:run
+```
 
-# 5. Suba o servidor
+### 6. Subir o servidor
+
+```bash
 php -S localhost:8000 public/index.php
 ```
 
----
+A API ficará disponível em `http://localhost:8000`.
 
-## Sistema atual
+## Endpoints
 
-Endpoints disponíveis:
+### Já existentes
 
-```
-GET   /transportadoras
-POST  /transportadoras
-GET   /transportadoras/{id}
-PATCH /transportadoras/{id}/desativar
-PATCH /transportadoras/{id}/reativar
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/transportadoras` | Lista transportadoras |
+| POST | `/transportadoras` | Cria transportadora |
+| GET | `/transportadoras/{id}` | Detalha transportadora |
+| PATCH | `/transportadoras/{id}/desativar` | Desativa transportadora |
+| PATCH | `/transportadoras/{id}/reativar` | Reativa transportadora |
+| GET | `/entregas` | Lista entregas |
+| POST | `/entregas` | Cria entrega |
+| GET | `/entregas/{id}` | Detalha entrega |
+| PATCH | `/entregas/{id}/status` | Atualiza status da entrega |
 
-GET   /entregas
-POST  /entregas
-GET   /entregas/{id}
-PATCH /entregas/{id}/status
-```
+### Implementados neste desafio
 
-Dados de seed disponíveis (use os IDs para testar):
-- 3 transportadoras (2 ativas, 1 inativa)
-- 2 remetentes
-- 3 destinatários
-- 3 entregas em status variados com histórico de ocorrências
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/motivos-nao-conformidade` | Lista os motivos com `ativo = 1` |
+| POST | `/entregas/{id}/nao-conformidades` | Registra uma não conformidade em uma entrega |
 
-**Fluxo de status:**
-```
-CRIADA → COLETADA → EM_TRANSITO → SAIU_ENTREGA → ENTREGUE
-                                               ↘ DEVOLVIDA
-```
-Transições inválidas devem retornar `422`.
+## Exemplos de requisição
 
----
+### Listar motivos de não conformidade
 
-## Suas tarefas
-
-### Tarefa 1 — Corrigir o bug
-
-Leia o arquivo [`BUG_REPORT.md`](./BUG_REPORT.md), reproduza o problema, corrija e preencha o [`BUGFIX.md`](./BUGFIX.md).
-
-### Tarefa 2 — Não conformidades
-
-O time de operações precisa registrar ocorrências de entregas com problema (avaria, recusa, endereço errado, etc.).
-
-**Crie as migrations:**
-
-```
-motivos_nao_conformidade
-  id        INT UNSIGNED PK AUTO_INCREMENT
-  codigo    VARCHAR(30) UNIQUE NOT NULL
-  descricao VARCHAR(150) NOT NULL
-  ativo     TINYINT(1) NOT NULL DEFAULT 1
-
-nao_conformidades
-  id         INT UNSIGNED PK AUTO_INCREMENT
-  id_entrega INT UNSIGNED NOT NULL  →  FK entregas.id
-  id_motivo  INT UNSIGNED NOT NULL  →  FK motivos_nao_conformidade.id
-  descricao  VARCHAR(500) NULL
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+```bash
+curl http://localhost:8000/motivos-nao-conformidade
 ```
 
-**Crie o seeder `MotivosNaoConformidadeSeeder.php`** com:
+Resposta `200 OK` (exemplo):
 
-| codigo | descricao |
-|--------|-----------|
-| `AVARIA_PRODUTO` | Produto com avaria ou dano |
-| `NAO_ENTREGUE` | Destinatário ausente |
-| `ENDERECO_INCORRETO` | Endereço incorreto ou não localizado |
-| `RECUSADO` | Recusado pelo destinatário |
-| `EXTRAVIO` | Produto extraviado |
-| `OUTROS` | Outros motivos |
-
-**Implemente os endpoints:**
-
-```
-GET  /motivos-nao-conformidade
-     → retorna lista dos motivos com ativo = 1
-
-POST /entregas/{id}/nao-conformidades
-     body: { "id_motivo": 1, "descricao": "..." }
-     → registra a não conformidade
-     → id_motivo obrigatório; entrega e motivo devem existir
+```json
+[
+  { "id": 1, "codigo": "AVARIA_PRODUTO", "descricao": "Produto com avaria ou dano" },
+  { "id": 2, "codigo": "NAO_ENTREGUE", "descricao": "Destinatário ausente" },
+  { "id": 3, "codigo": "ENDERECO_INCORRETO", "descricao": "Endereço incorreto ou não localizado"},
+  { "id": 4, "codigo": "RECUSADO", "descricao": "Recusado pelo destinatário"},
+  { "id": 5, "codigo": "EXTRAVIO", "descricao":"Produto extraviado"},
+  { "id": 6, "codigo": "OUTROS", "descricao":"Outros motivos"}
+]
 ```
 
----
+### Registrar uma não conformidade
 
-## Commits esperados
-
-Queremos ver o raciocínio em etapas — não um único commit com tudo.
-
-```
-fix:   correção do bug
-feat:  migration motivos_nao_conformidade
-feat:  migration nao_conformidades
-feat:  seeder MotivosNaoConformidadeSeeder
-feat:  GET /motivos-nao-conformidade
-feat:  POST /entregas/{id}/nao-conformidades
-docs:  BUGFIX.md preenchido
+```bash
+curl -X POST http://localhost:8000/entregas/1/nao-conformidades \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id_motivo": 2,
+    "descricao": "Sem acesso ao cliente"
+  }'
 ```
 
----
+Resposta `201 Created`:
 
-## Bônus
+```json
+{
+  "id": 1,
+  "mensagem": "Não conformidade criada com sucesso"
+}
+```
 
-- `GET /rastreamento/{codigo}` — rastreamento público pelo código da entrega (ex: `BRD-2024-00001`)
-- `GET /entregas/{id}/nao-conformidades` — listar NCs de uma entrega
-- Docker + docker-compose funcional
-- Testes automatizados
+O campo `descricao` é opcional; `id_motivo` é obrigatório; `id_entrega` é obrigatório.
 
----
+### Códigos de resposta do `POST /entregas/{id}/nao-conformidades`
 
-## Critérios de avaliação
+| Status | Situação |
+|--------|----------|
+| 201 | Não conformidade registrada |
+| 404 | Entrega não encontrada |
+| 404 | Motivo não encontrado |
+| 403 | Motivo inativo |
 
-| O que avaliamos | Peso |
-|-----------------|------|
-| Identificação e correção do bug | Alto |
-| BUGFIX.md — clareza técnica + resposta para o time | Alto |
-| Migrations corretas (FKs, índices, tipos) | Alto |
-| Endpoints de não conformidade funcionando | Alto |
-| Qualidade de código e organização | Médio |
-| Tratamento de erro e HTTP status codes | Médio |
-| Granularidade dos commits | Médio |
+## Banco de dados
 
----
+### `motivos_nao_conformidade`
 
-## Entrega
+| Coluna | Tipo | Observações |
+|--------|------|-------------|
+| id | INT UNSIGNED | PK, AUTO_INCREMENT |
+| codigo | VARCHAR(30) | UNIQUE, NOT NULL |
+| descricao | VARCHAR(150) | NOT NULL |
+| ativo | TINYINT(1) | NOT NULL, DEFAULT 1 |
 
-1. Suba em repositório **público** no GitHub (sem BRUDAM no nome)
-2. README do seu projeto com: como rodar, exemplos de requisição, decisões técnicas
-3. Envie ao recrutador: nome completo · link do repo · LinkedIn
+### `nao_conformidades`
 
----
+| Coluna | Tipo | Observações |
+|--------|------|-------------|
+| id | INT UNSIGNED | PK, AUTO_INCREMENT |
+| id_entrega | INT UNSIGNED | NOT NULL, FK → `entregas.id` |
+| id_motivo | INT UNSIGNED | NOT NULL, FK → `motivos_nao_conformidade.id` |
+| descricao | VARCHAR(500) | NULL |
+| created_at | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP |
 
-## Dúvidas
+O seeder `MotivosNaoConformidadeSeeder` popula os motivos: `AVARIA_PRODUTO`, `NAO_ENTREGUE`, `ENDERECO_INCORRETO`, `RECUSADO`, `EXTRAVIO` e `OUTROS`.
 
-Se algo estiver ambíguo, documente sua interpretação e siga. Decisão sob incerteza também é avaliada.
+## Correção do bug
 
----
+O bug reportado, a causa raiz e a resposta para o time de operações estão documentados em [`BUGFIX.md`](./BUGFIX.md).
 
-## Autor
+## Decisões técnicas
 
-**Michel Mileski** — [@eusouomichel](https://github.com/eusouomichel)
+- **MySQL em container:** o banco roda em um container da imagem `mysql:8.0`, o que evita instalação local e mantém o ambiente reproduzível.
+- **`id_entrega` na URL:** a entrega é identificada pelo path (`/entregas/{id}/nao-conformidades`), seguindo o padrão REST de sub-recurso. O body carrega apenas `id_motivo` e `descricao`.
+- **Prepared statements:** todas as consultas usam PDO com parâmetros, evitando SQL injection.
+- **Conversão de tipos:** `id_entrega` e `id_motivo` são convertidos para `int` antes de irem ao banco, já que as colunas são `INT UNSIGNED`.
+- **Validação antes de consulta:** campos obrigatórios são validados primeiro (`422`), depois a existência da entrega e do motivo (`404`), e só então o `INSERT`.
+- **Status HTTP:** `201` para criação, `422` para dados inválidos e `404` para recursos inexistentes.
+- **Commits em etapas:** o histórico segue a granularidade pedida no desafio (fix, migrations, seeder, endpoints e docs em commits separados).
+- **Ambiguidades:** quando algo não estava especificado no enunciado, a interpretação adotada foi documentada aqui e no `BUGFIX.md`.
+
+## Estrutura do projeto
+
+```
+├── db/
+│   ├── migrations/
+│   └── seeds/
+├── public/
+│   └── index.php        # ponto de entrada
+├── src/
+│   ├── Controllers/
+│   ├── Database.php
+│   └── Router.php
+├── .env.example
+├── BUGFIX.md
+├── composer.json
+└── README.md
+```
+
+> A estrutura acima é ilustrativa; ajuste conforme o layout real do seu repositório.
